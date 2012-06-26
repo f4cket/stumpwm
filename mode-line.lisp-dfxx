@@ -1,0 +1,88 @@
+(in-package :stumpwm)
+
+(set-contrib-dir "/home/simon/.stump")
+;; (load-module "~/.stump/battery.lisp")
+;; (load-module "cpu")
+(load-module "disk")
+(load-module "cpu")
+(load-module "mem")
+(load-module "net")
+;; (load-module "mpd")
+(load-module "mem")
+(load-module "net")
+(load-module "notifications")
+
+(dolist (i '("ml-wifi.sh" "ml-weather.sh"
+	     ;; "ml-email.sh"
+;;             ;; "ml-volume.sh" "ml-dropbox.sh" "ml-sensors.sh"
+;;             ;; "ml-clock.sh"
+             "ml-trash.sh" "ml-quotes.sh" ))
+  (run-shell-command i))
+
+(defun read-ml-file (s)
+  (read-file (str "/dev/shm/" s)))
+
+(defun color-ping (s)
+  (if (equal s "")
+      ""
+      (let* ((words (cl-ppcre:split "\\s+" s))
+             (ping (nth 5 words))
+             (color (bar-zone-color (read-from-string ping)
+                                    300 700 1000))
+             (colored-ping (format nil "^[~A~3D^]" color ping)))
+        (cl-ppcre:regex-replace ping s colored-ping))))
+
+;; (defun top-programs)
+(setf *time-modeline-string* "%a %m-%d ^5*^B%l:%M^b^n")
+(setf *mode-line-background-color* "black"
+        *mode-line-foreground-color* "MediumSlateBlue"
+        *mode-line-border-color*     "gray5"
+        )
+
+(setf *time-modeline-string* "%a %m-%d ^4*^B%l:%M^b^n %p")
+
+(setf stumpwm:*screen-mode-line-format*
+      (list
+       "[^B%n^b] " ; group num
+       '(:eval (color-ping (read-ml-file ".ml-wifi")))
+       ;; "%B " ; battery
+       ;;"%g" ;groups
+       "^B%W^b " ; window list
+       ;; " %Z"
+       "^>"
+       ;; pomodoro
+       ;; '(:eval (read-ml-file ".ml-pomodoro-msg")) " "
+       ;; '(:eval (read-ml-file ".ml-pomodoro-time")) " "
+       ;; '(:eval (read-ml-file ".ml-weather")) "F " ;; "°F "
+       ;; ;; volume
+       ;; '(:eval (read-file ".mode-line-volume")) " "
+       ;; "%c" ; cpu
+       ;; '(:eval (read-ml-file ".ml-sensors")) " "
+       ;; "%M" ; mem
+       "^B[^b%l^B]^b " ; net
+       "^B[^b%D^B]^b " ; disk
+       "^B[^b"
+       ;;'(:eval (string-right-trim '(#\Newline) (run-shell-command "acpi -b" t)))
+       "^B]^b "
+       ;;"Trash: " '(:eval (read-ml-file ".ml-trash")) " "
+       "^> %M %c" ;; I like %c but not working last time I tries it's cpu.lisp
+       ;; "%d"  ;; crappy default date
+       ;;"%d"
+       "^B[^b"
+       '(:eval (string-right-trim '(#\Newline) (run-shell-command
+       ;;                                          ;; "date +'%a %m-%d ^4*^B%l:%M^b^n %p'|tr -d '\\n'"
+       ;;                                          ;; uses date command so time can be bold
+                  "date +'%a %m-%d ^6*^B%R^b^n'" t)))
+       "^B]^b "
+       ))
+
+(defcommand uaml () ()
+  ""
+  (update-all-mode-lines))
+
+(dolist (head
+          (list (first (screen-heads (current-screen)))) ; first
+         ;; (screen-heads (current-screen)) ; all
+         )
+  (enable-mode-line (current-screen) head 
+                    t *screen-mode-line-format*))

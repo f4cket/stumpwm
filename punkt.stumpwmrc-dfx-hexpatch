@@ -1,0 +1,196 @@
+;; -*-LISp-*-
+;;
+;; Stumpwm user definitions
+;; Cursor
+(in-package :stumpwm)
+(set-contrib-dir "/usr/share/stumpwm")
+(load "/usr/share/stumpwm/notifications.lisp")
+;; (load "/usr/share/stumpwm/cpu.lisp")
+;; (load "/usr/share/stumpwm/disk.lisp")
+;; (load "/usr/share/stumpwm/mem.lisp")
+;; (load "/usr/share/stumpwm/net.lisp")
+(load "/home/simon/stumpwm/mode-line.lisp")
+;; (load "/usr/share/stumpwm/wombat.lisp")
+(load-module "mpd")
+;; (load-module "wifi")
+(defun cat (&rest strings) ; "Concatenates strings, like the Unix command 'cat'. A shortcut for (concatenate 'string foo bar)."
+  (apply 'concatenate 'string strings))
+
+(set-font "-*-ohsnap.icons-medium-*-*-*-11-*-*-*-*-*-*-*")
+(set-prefix-key (kbd "C-i"))
+
+(defun show-key-seq (key seq val)
+      (message (print-key-seq (reverse seq))))
+    (add-hook *key-press-hook* 'show-key-seq)
+
+;;; Variables
+;; suppress the message StumpWM displays when it starts. Set it to NIL
+(setf *startup-message* "Never Stop Hacking!"
+      *mouse-focus-policy* :sloppy ;; :click, :ignore, :sloppy
+      ;;Set the message and input box to the bottom right. This way it overlaps with mode-line.
+      *message-window-gravity* :center
+      *input-window-gravity* :center
+      *frame-number-map* "123qwe"
+      *window-number-map* "123qwe")
+;;; Window Colors
+;;(set-unfocus-color "grey30")
+;;(set-fg-color "HotPink")
+;;(set-bg-color "black")
+;;(set-border-color "SpringGreen3")
+;;(set-msg-border-width 3)
+;;(set-normal-gravity :center)
+;;(set-focus-color "DarkSlateGray4")
+
+;; att göra egna färger.
+;; (set-focus-color (make-color-hex "#876cbe")) 
+
+;;; Window Appearance
+(setf *normal-border-width* 1 
+      *maxsize-border-width* 1
+      *transient-border-width* 1
+      *window-border-style* :tight)     ; :thick :thin :tight :none
+
+;;;; The Mode Line
+
+;; (setf *mode-line-background-color*	"black"
+;;			*mode-line-foreground-color*	"dodgerblue"
+;;			*mode-line-border-color*			"grey10"
+;;				*screen-mode-line-format*
+;;				(list '(:eval (run-shell-command "date '+%R, %F'| tr -d [:cntrl:]" t)) " | %t | %c| %l | [^B%n^b] %W"))
+
+;; (setf *mode-line-background-color* "Black"
+;;       *mode-line-foreground-color* "LightGreen"
+;;       *mode-line-border-color*     "Black" 
+;;       *mode-line-timeout*          1
+;;       *mode-line-screen-position*  :top
+;;       *window-format*		   "^B^8*%n%s%m%30t  :: ^7*"
+;;       *group-format*		   "%t"
+;;       *screen-mode-line-format* (list "^B" `(:eval (stumpwm:run-shell-command "printf \"`date +'%d %B %H:%M'`\"" t))
+;; 														"  ^B""  ^B""  ^B"
+;; 														"%c %t"  "%D"  "%M"  "%l" "&M" "%N" "%I" ; Current group and frames                                      
+;; ))
+
+(defun update-mode-line () "Update the mode-line sooner than usual."
+       (let ((screen (current-screen)))
+         (when (screen-mode-line screen)
+           (redraw-mode-line-for (screen-mode-line screen) screen))))
+
+
+;; turn on/off the mode line for the current screen only.
+(if (not (head-mode-line (current-head)))
+     (toggle-mode-line (current-screen) (current-head)))
+
+;; MPD
+;;(mpd-connect)
+
+;; Create groups
+(defvar group-names "123qwe")
+
+(dotimes (i 6)
+  (define-key *top-map* (kbd (format nil "s-~a" (char group-names i)))
+    (format nil "gselect ~a" (1+ i)))
+  (define-key *top-map* (kbd (format nil "s-C-~a" (char group-names i)))
+    (format nil "gmove ~a" (1+ i))))
+
+(defmacro make-groups (&rest names)
+  (let ((ns (mapcar #'(lambda (n) (cat "gnew " n)) names)))
+    `(run-commands ,@ns)))
+
+(make-groups "2" "3" "q" "w" "e")
+(run-commands "gselect 1" "grename 1")
+
+;; define commands
+(defcommand firefox () ()
+  "Run or switch to firefox."
+  (run-or-raise "firefox" '(:class "Firefox")))
+
+(defcommand conkeror () ()
+  "Run or switch to conkeror."
+  (run-or-raise "conkeror" '(:class "Conkeror")))
+
+(defcommand reinit () ()
+            (run-commands "reload" "loadrc"))
+
+(defcommand dmenu () ()
+            (run-shell-command "dmenu_run -p 'sh -c ' -nb black -nf cyan2 -fn '-*-ohsnap.icons-medium-*-*-*-11-*-*-*-*-*-*-*' -sf violet -sb black"))
+
+;; define keys
+(defmacro defkey-top (key cmd)
+  `(define-key *top-map* (kbd ,key) ,cmd))
+
+(defmacro defkeys-top (&rest keys)
+  (let ((ks (mapcar #'(lambda (k) (cons 'defkey-top k)) keys)))
+    `(progn ,@ks)))
+
+(defmacro defkey-root (key cmd)
+  `(define-key *root-map* (kbd ,key) ,cmd))
+
+(defmacro defkeys-root (&rest keys)
+  (let ((ks (mapcar #'(lambda (k) (cons 'defkey-root k)) keys)))
+    `(progn ,@ks)))
+
+
+(defkeys-top
+  ("s-RET"     "exec urxvt")
+  ("s-p"       "exec urxvt -e tmux attach")
+  ("s-v"       "vsplit")
+  ("s-h"       "hsplit")
+  ("s-r"       "remove-split")
+  ("s-R"       "reinit")
+  ("s-a"       "windowlist")
+  ("s-b"       "mode-line")
+  ("s-SPC"     "next")
+  ("s-m"       "prev")
+  ("Print"     "dmenu")
+  ("M-Print"   "quit")
+  ("s-k"       "delete-window")
+  ("s-Right"   "move-focus right")
+  ("s-Left"    "move-focus left" )
+  ("s-Up"      "move-focus up"   )
+  ("s-Down"    "move-focus down" )
+  ("s-C-Right" "move-window right")
+  ("s-C-Left"  "move-window left" )
+  ("s-C-Up"    "move-window up"   )
+  ("s-C-Down"  "move-window down" )
+  ("s-S-Right" "gnext")
+  ("s-S-Left"  "gprev")
+  ("s-ESC"     "colon")
+  ("s-S-Up"    "prev-in-frame")
+  ("s-S-Down"  "next-in-frame")
+  ("s-i"       "iresize"))
+(defkeys-root
+  ("C-x"       "xterm")
+  ("f"         "firefox")
+  ("Q"	       "quit")
+  ("v"         "vsplit")
+  ("r"         "remove-split")
+  ("h"         "hsplit")
+  ("k"         "kill-window")
+  ("c"         "exec conkeror google.com")
+)
+
+(define-key *root-map* (kbd "N") '*notifications-map*)
+(fill-keymap *notifications-map*
+	     (define-key (kbd "a")     "notifications-add")
+	     (define-key (kbd "r")     "notifications-reset")
+	     (define-key (kbd "d")     "notifications-delete-first")
+	     (define-key (kbd "D")     "notifications-delete-last")
+	     (define-key (kbd "s")     "notifications-show"))
+
+;; --[ Hooks
+
+;; display the key sequence in progress
+;; (defun key-press-hook (key key-seq cmd)
+;;   (declare (ignore key))
+;;   (unless (eq *top-map* *resize-map*)
+;;     (let ((*message-window-gravity* :bottom-left))
+;;       (message "Key sequence: ~a" (print-key-seq (reverse key-seq))))
+;;     (when (stringp cmd)
+;;       ;; give 'em time to read it
+;;       (sleep 0.5))))
+
+;; (defmacro replace-hook (hook fn)
+;;   `(remove-hook ,hook ,fn)
+;;   `(add-hook ,hook ,fn))
+
+;; (replace-hook *key-press-hook* 'key-press-hook)
